@@ -12,6 +12,7 @@ $conn.port = "389"
 $conn.auth "cn=Manager,dc=example,dc=co,dc=uk", "my-manager-password"
 $basedomain = "ou=Servers,dc=example,dc=co,dc=uk"
 
+
 #
 # Function: read_server
 #
