@@ -1,0 +1,118 @@
+#!/usr/bin/ruby
+
+# Includes
+require 'rubygems'
+require 'net/ldap'
+require 'cgi'
+
+# Globals
+$conn = Net::LDAP.new
+$conn.host = "cmdb.example.co.uk"
+$conn.port = "389"
+$conn.auth "cn=Manager,dc=example,dc=co,dc=uk", "my-manager-password"
+$basedomain = "ou=Servers,dc=example,dc=co,dc=uk"
+
+#
+# Function: read_server
+#
+def read_server servername
+
+  filter = Net::LDAP::Filter.eq( "objectclass", "managedServer" )
+  filter = Net::LDAP::Filter.eq( "hostName", servername )
+  attrs = [ ]
+
+  $conn.search(:base => $basedomain,
+               :filter => filter) do |entry|
+  
+    serverdn = entry['dn'].to_s
+    puts "serverdn: " + serverdn
+    puts "  servercn: #{entry.cn}"
+    puts "  hostname: #{entry.hostName}"
+    puts "  vdatacentre: #{entry.vDatacentre}"
+    puts "  vesxhost: #{entry.vESXHost}"
+    puts "  osversion: #{entry.osVersion}"
+    puts "  vmemory: #{entry.vMemory}"
+    #memgb = entry['vmemory'].to_s
+    #print"  vmemory: ", memgb.to_i * 1024, "\n"
+    puts "  vcores: #{entry.vcores}"
+    puts "  cobblerprofile: #{entry.cobblerprofile}"
+    puts "  nameserver: #{entry.nameServer}"
+    return serverdn
+  end
+end
+
+#
+# Function: read_disk
+#
+def read_disk treebase
+
+  #treebase = "cn=" + servername + "," + $basedomain
+  filter = Net::LDAP::Filter.eq( "objectclass", "storageDevice" )
+  filter = Net::LDAP::Filter.eq( "diskOrder", "1" )
+  attrs = [ ]
+
+  $conn.search(:base => treebase,
+               :filter => filter) do |entry|
+ 
+    puts "diskdn: #{entry.dn}"
+    puts "  diskcn: #{entry.cn}"
+    puts "  storagelocation: #{entry.storageLocation}"
+    puts "  sizegb: #{entry.size}" 
+    sizegb = entry['size'].to_s
+    print"  size: ", sizegb.to_i * 1024 * 1024, "\n"
+  end
+end
+
+#
+# Function: read_nic
+#
+def read_nic treebase
+
+  #treebase = "cn=" + servername + "," + $basedomain
+  filter = Net::LDAP::Filter.eq( "objectclass", "networkInterface" )
+  filter = Net::LDAP::Filter.eq( "nicOrder", "1" )
+  attrs = [ ]
+
+  $conn.search(:base => treebase,
+               :filter => filter) do |entry|
+ 
+    puts "nicdn: #{entry.dn}"
+    puts "  niccn: #{entry.cn}"
+    puts "  bridge: #{entry.bridge}"
+    if entry['macaddress'].to_s.empty? then
+      puts "  macaddress: 00:00:00:00:00:00"
+    else
+      puts "  macaddress: #{entry.macaddress}"
+    end
+    puts "  ipaddress: #{entry.ipHostNumber}"
+    puts "  netmask: #{entry.ipNetmaskNumber}"
+    puts "  gateway: #{entry.gateway}"
+  end
+end
+
+# 
+# Main
+#
+puts "Content-type: text/plain"
+puts
+
+cgi = CGI.new
+params = cgi.params # hash with field-names and values
+fqdn = params['fqdn'].to_s
+
+puts "fqdn: " + fqdn
+
+dn = read_server fqdn
+
+if dn.empty?
+  puts "Server not found in CMDB"
+  exit 1
+end
+
+read_disk dn
+read_nic  dn
+
+puts
+
+exit 0
+

@@ -1,0 +1,3 @@
+
+Simple Ruby Net::LDAP web CGI script to read details of a system from a CMDB LDAP instance.
+
